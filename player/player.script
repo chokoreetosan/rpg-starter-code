@@ -1,0 +1,99 @@
+function init(self)
+	msg.post(".", "acquire_input_focus")
+	self.walkSpeed = 70
+	msg.post("#sprite", "play_animation", { id=hash("downidle")})
+	self.speed = vmath.vector3()
+	self.walking = false
+	self.facingVector = vmath.vector3(1,0,0)
+	self.facingDirection = "down"
+	self.correction = vmath.vector3()
+	self.movementCallback = stop_player
+end
+
+function final(self)
+	msg.post(".", "release_input_focus")
+end
+
+function update(self, dt)
+	if self.speed ~= vmath.vector3() then
+		local pos = go.get_position();
+		pos = pos + self.speed * dt
+		go.set_position(pos)
+		self.correction = vmath.vector3()
+	end
+end
+
+function on_message(self, message_id, message, sender)
+	if message_id == hash("contact_point_response") then
+		bump_into_walls(self,message)
+	elseif message_id == hash("ray_cast_missed") then
+		move_player(self)
+	elseif message_id == hash("ray_cast_response") then
+		stop_player(self)
+	end
+
+end
+
+function on_input(self, action_id, action)
+	turn_player(self,action_id)
+	if action.pressed == true then
+		self.movementCallback = move_player
+		physics.raycast_async(go.get_position("#sprite"), go.get_position("#sprite") + self.facingVector * 19, {hash("stops")} )
+	elseif action.repeated == true then
+		if self.walking == false then
+			self.movementCallback = move_player
+			physics.raycast_async(go.get_position("#sprite"), go.get_position("#sprite") + self.facingVector * 19, {hash("stops")} )
+		end
+	elseif action.released == true then
+		self.movementCallback = stop_player
+		stop_player(self)
+	end
+	-- msg.post("@render:","draw_line", {start_point = go.get_position("#sprite"), end_point = go.get_position("#sprite") + self.facingVector * 19, color = vmath.vector4(1,1,1,1)})
+end
+
+function turn_player(self, action_id)
+	print("player turned")
+	if action_id == hash("MOVE_LEFT") then
+		self.facingVector = vmath.vector3(-1,0,0)
+		self.facingDirection = "left"
+	elseif action_id == hash("MOVE_RIGHT") then
+		self.facingVector = vmath.vector3(1,0,0)
+		self.facingDirection = "right"
+	elseif action_id == hash("MOVE_UP") then
+		self.facingVector = vmath.vector3(0,1,0)
+		self.facingDirection = "up"
+	elseif action_id == hash("MOVE_DOWN") then
+		self.facingVector = vmath.vector3(0,-1,0)
+		self.facingDirection = "down"
+	end	
+end
+
+function move_player(self)
+	sprite.play_flipbook("#sprite", hash("walk" .. self.facingDirection),self.movementCallback)
+	self.speed = self.facingVector * self.walkSpeed
+	self.walking = true
+end
+
+function stop_player(self)
+		self.walking = false
+		self.speed = vmath.vector3()
+		sprite.play_flipbook("#sprite", hash(self.facingDirection .. "idle"))
+end
+
+function bump_into_walls(self, message)
+	self.bumping = true
+	if message.distance > 0 then
+		local proj = vmath.project(self.correction, message.normal * message.distance)
+		if proj < 1 then
+			local comp = (message.distance - message.distance * proj) * message.normal
+			go.set_position(go.get_position() + comp)
+			self.correction = self.correction + comp
+		end	
+	end
+end
+-- 
+-- function on_reload(self)
+-- 	-- Add reload-handling code here
+-- 	-- Remove this function if not needed
+-- end
+-- 

@@ -1,0 +1,33 @@
+local rendercam = require "rendercam.rendercam"
+function load_complete(self, url, result)
+	self.go_ids = collectionfactory.create(url, vmath.vector3(475,850,1))
+	rendercam.follow(self.go_ids['/go'])
+
+end
+
+
+function init(self)
+	msg.post(".", "acquire_input_focus") 
+	collectionfactory.load("/player#collectionfactory", load_complete)
+end
+
+function on_input(self, action_id, action)
+
+end
+function on_message(self, message_id, message)
+	-- print(self,message_id,message)
+	if message_id == hash("collision_response") then
+		-- print("main script got collision response")		
+	end
+end
+
+function final(self)
+	-- Delete game object. Will decref resources.
+	-- In this case resources aren’t deleted since the collection factory
+	-- component still holds a reference.
+	go.delete_all(self.go_ids)
+
+	-- Calling unload will decref resources held by the factory component,
+	-- resulting in resources being destroyed.
+	collectionfactory.unload("/player#collectionfactory")
+end
